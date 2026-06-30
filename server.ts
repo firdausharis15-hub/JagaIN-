@@ -114,7 +114,7 @@ async function retryWithBackoff<T>(fn: () => Promise<T>, retries = 3, delay = 10
 async function callGeminiGenerate(
   prompt: string,
   config: any,
-  models: string[] = ["gemini-3.5-flash", "gemini-flash-latest", "gemini-3.1-flash-lite"]
+  models: string[] = ["gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.5-flash"]
 ) {
   let lastError: any = null;
   for (const model of models) {
@@ -141,7 +141,7 @@ async function callGeminiChat(
   history: any[],
   message: string,
   systemInstruction: string,
-  models: string[] = ["gemini-3.5-flash", "gemini-flash-latest", "gemini-3.1-flash-lite"]
+  models: string[] = ["gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.5-flash"]
 ) {
   let lastError: any = null;
   for (const model of models) {
