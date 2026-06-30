@@ -60,7 +60,7 @@ const realTimeDatabase: ReportedLink[] = [
   }
 ];
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // Lazy initialization of GoogleGenAI
 let aiClient: GoogleGenAI | null = null;
