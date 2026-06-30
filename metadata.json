@@ -1,0 +1,6 @@
+{
+  "name": "JagaIN",
+  "description": "AI verifikator berita, pendeteksi link phishing, dan asisten keamanan digital tepercaya.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
