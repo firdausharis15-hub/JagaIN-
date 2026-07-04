@@ -60,6 +60,15 @@ body {
   color: #d9e3f2;
 }
 
+.bg-batik-kawung {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cellipse cx='40' cy='40' rx='38' ry='16' fill='none' stroke='%2300D4AA' stroke-width='0.4' stroke-dasharray='1 4' opacity='0.08' /%3E%3Cellipse cx='40' cy='40' rx='16' ry='38' fill='none' stroke='%2300D4AA' stroke-width='0.4' stroke-dasharray='1 4' opacity='0.08' /%3E%3Cellipse cx='40' cy='40' rx='28' ry='28' fill='none' stroke='%23d4af37' stroke-width='0.4' opacity='0.05' /%3E%3Ccircle cx='40' cy='40' r='4' fill='%23d4af37' opacity='0.15' /%3E%3Ccircle cx='40' cy='40' r='1.5' fill='%2300D4AA' opacity='0.25' /%3E%3Ccircle cx='0' cy='0' r='3' fill='%23d4af37' opacity='0.1' /%3E%3Ccircle cx='80' cy='0' r='3' fill='%23d4af37' opacity='0.1' /%3E%3Ccircle cx='0' cy='80' r='3' fill='%23d4af37' opacity='0.1' /%3E%3Ccircle cx='80' cy='80' r='3' fill='%23d4af37' opacity='0.1' /%3E%3C/svg%3E");
+}
+
+.bg-batik-band {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='16' viewBox='0 0 120 16'%3E%3Cpath d='M0 8 C15 0, 15 16, 30 8 C45 0, 45 16, 60 8 C75 0, 75 16, 90 8 C105 0, 105 16, 120 8' fill='none' stroke='%2300D4AA' stroke-width='1.5' opacity='0.2'/%3E%3Cpath d='M0 12 C15 4, 15 20, 30 12 C45 4, 45 20, 60 12 C75 4, 75 20, 90 12 C105 4, 105 20, 120 12' fill='none' stroke='%23d4af37' stroke-width='1' opacity='0.15'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+}
+
 .glass-card {
   background: rgba(23, 32, 43, 0.4);
   backdrop-filter: blur(12px);

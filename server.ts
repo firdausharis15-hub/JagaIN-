@@ -327,8 +327,12 @@ app.post("/api/chat", async (req, res) => {
     // Limit history length to fit token constraints comfortably
     const recentHistory = geminiHistory.slice(-10);
 
-    const systemInstruction = `Anda adalah JagaIN AI, asisten virtual keamanan digital dan perlindungan data yang sangat ahli, ramah, dan solutif.
-Tugas Anda adalah membantu pengguna memahami keamanan siber, mengidentifikasi hoaks/penipuan/phishing, memberikan tips praktis melindungi privasi (seperti mengaktifkan 2FA, memilih password manager, menghindari rekayasa sosial), dan merespon dengan bahasa Indonesia yang jelas, hangat, dan profesional.
+    const systemInstruction = `Anda adalah JagaIN AI, asisten virtual keamanan digital, penjaga informasi hoaks, dan pengamat tren media sosial yang sangat ahli, ramah, dan solutif.
+Tugas Anda adalah:
+1. Membantu pengguna memahami keamanan digital, perlindungan data, privasi siber, 2FA, password manager, dan pencegahan penipuan siber.
+2. Membantu memverifikasi berita, rumor, rilis, pesan berantai, atau desas-desus media sosial agar pengguna terhindar dari hoaks (disinformasi).
+3. Memberikan pandangan, edukasi, dan tanya jawab seputar isu/tren hangat yang sedang hits atau viral di media sosial Indonesia saat ini, menjelaskan apakah tren tersebut aman, berpotensi hoaks, atau sekadar rumor/fakta menarik.
+Selalu merespons dengan bahasa Indonesia yang jelas, hangat, santai tapi profesional.
 PENTING: Berikan jawaban berupa RANGKUMAN SINGKAT yang sangat padat, langsung ke poin utama, maksimal 3-4 kalimat saja atau beberapa poin ringkas. Jangan memberikan penjelasan yang panjang atau bertele-tele agar mudah dibaca dengan cepat di layar handphone.`;
 
     const response = await callGeminiChat(
@@ -425,6 +429,47 @@ app.post("/api/report-link", (req, res) => {
   }
 });
 
+// Helper to extract image URLs from RSS feed items
+function extractImageFromRssItem(item: any): string | null {
+  if (!item) return null;
+  
+  // 1. Check enclosure url
+  if (item.enclosure && item.enclosure.url) {
+    return item.enclosure.url;
+  }
+  
+  // 2. Check media:content (some feeds use media namespace)
+  if (item['media:content'] && item['media:content'].$ && item['media:content'].$.url) {
+    return item['media:content'].$.url;
+  }
+  if (item['media:content'] && item['media:content'].url) {
+    return item['media:content'].url;
+  }
+  if (Array.isArray(item['media:content'])) {
+    const firstMedia = item['media:content'][0];
+    if (firstMedia && firstMedia.$ && firstMedia.$.url) return firstMedia.$.url;
+    if (firstMedia && firstMedia.url) return firstMedia.url;
+  }
+
+  // 3. Check media:thumbnail
+  if (item['media:thumbnail'] && item['media:thumbnail'].$ && item['media:thumbnail'].$.url) {
+    return item['media:thumbnail'].$.url;
+  }
+  if (item['media:thumbnail'] && item['media:thumbnail'].url) {
+    return item['media:thumbnail'].url;
+  }
+
+  // 4. Check in content / description for HTML img tag
+  const contentString = item.content || item.contentSnippet || item['content:encoded'] || item.description || "";
+  const imgRegex = /<img[^>]+src=["']([^"']+)["']/i;
+  const match = contentString.match(imgRegex);
+  if (match && match[1]) {
+    return match[1];
+  }
+
+  return null;
+}
+
 // 6. API: RSS Feed Parser News with AI Comparison (CNN Indonesia vs BSSN)
 app.get("/api/rss-news", async (req, res) => {
   const parser = new Parser();
@@ -438,15 +483,51 @@ app.get("/api/rss-news", async (req, res) => {
 
   // Default fallback items
   let cnnFeedItems = [
-    { title: "Marak Modus Penipuan Link APK Surat Tilang dan Undangan Pernikahan Palsu di WhatsApp", link: "https://www.cnnindonesia.com/teknologi", pubDate: now.toISOString(), contentSnippet: "Para ahli keamanan siber memperingatkan maraknya pengiriman file APK berbahaya berkedok berkas surat tilang atau undangan digital." },
-    { title: "Serangan Phishing Targetkan Pengguna Mobile Banking Bank Swasta Terkemuka di Indonesia", link: "https://www.cnnindonesia.com/teknologi", pubDate: now.toISOString(), contentSnippet: "Tautan palsu yang meniru tampilan login perbankan disebarkan lewat SMS dan chat untuk mengelabui nasabah agar mengisi data sensitif." },
-    { title: "Kecerdasan Buatan (AI) Digunakan Penipu untuk Meniru Suara Kerabat Demi Meminta Uang", link: "https://www.cnnindonesia.com/teknologi", pubDate: yesterday.toISOString(), contentSnippet: "Teknologi deepfake audio semakin sering dimanfaatkan untuk melakukan rekayasa sosial tingkat tinggi di Indonesia." }
+    { 
+      title: "Marak Modus Penipuan Link APK Surat Tilang dan Undangan Pernikahan Palsu di WhatsApp", 
+      link: "https://www.cnnindonesia.com/teknologi", 
+      pubDate: now.toISOString(), 
+      contentSnippet: "Para ahli keamanan siber memperingatkan maraknya pengiriman file APK berbahaya berkedok berkas surat tilang atau undangan digital.",
+      imageUrl: "https://images.unsplash.com/photo-1563986768609-322da13575f3?w=800&auto=format&fit=crop&q=80"
+    },
+    { 
+      title: "Serangan Phishing Targetkan Pengguna Mobile Banking Bank Swasta Terkemuka di Indonesia", 
+      link: "https://www.cnnindonesia.com/teknologi", 
+      pubDate: now.toISOString(), 
+      contentSnippet: "Tautan palsu yang meniru tampilan login perbankan disebarkan lewat SMS dan chat untuk mengelabui nasabah agar mengisi data sensitif.",
+      imageUrl: "https://images.unsplash.com/photo-1601597111158-2fceff270190?w=800&auto=format&fit=crop&q=80"
+    },
+    { 
+      title: "Kecerdasan Buatan (AI) Digunakan Penipu untuk Meniru Suara Kerabat Demi Meminta Uang", 
+      link: "https://www.cnnindonesia.com/teknologi", 
+      pubDate: yesterday.toISOString(), 
+      contentSnippet: "Teknologi deepfake audio semakin sering dimanfaatkan untuk melakukan rekayasa sosial tingkat tinggi di Indonesia.",
+      imageUrl: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&auto=format&fit=crop&q=80"
+    }
   ];
 
   let bssnFeedItems = [
-    { title: "Imbauan Keamanan: Kerentanan Berisiko Tinggi (High Severity) pada Sistem Operasi Android dan Browser Chrome", link: "https://govcsirt.bssn.go.id", pubDate: now.toISOString(), contentSnippet: "BSSN merilis peringatan penting kepada seluruh instansi dan publik untuk segera memperbarui OS Android dan Google Chrome guna mencegah eksekusi kode jarak jauh." },
-    { title: "Panduan Teknis BSSN: Langkah Mitigasi Terhadap Ancaman Ransomware di Sektor Keuangan", link: "https://govcsirt.bssn.go.id", pubDate: now.toISOString(), contentSnippet: "Meningkatkan kewaspadaan siber nasional, BSSN mempublikasikan SOP pencadangan offline (3-2-1 backup) dan perlindungan kredensial admin sistem." },
-    { title: "Peringatan Eksploitasi Celah Keamanan Aplikasi Pesan Instan yang Rentan Penyadapan Data", link: "https://govcsirt.bssn.go.id", pubDate: yesterday.toISOString(), contentSnippet: "BSSN mengimbau masyarakat mengaktifkan verifikasi dua langkah (2FA) di seluruh platform pesan instan guna menangkal pengambilalihan akun." }
+    { 
+      title: "Imbauan Keamanan: Kerentanan Berisiko Tinggi (High Severity) pada Sistem Operasi Android dan Browser Chrome", 
+      link: "https://govcsirt.bssn.go.id", 
+      pubDate: now.toISOString(), 
+      contentSnippet: "BSSN merilis peringatan penting kepada seluruh instansi dan publik untuk segera memperbarui OS Android dan Google Chrome guna mencegah eksekusi kode jarak jauh.",
+      imageUrl: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80"
+    },
+    { 
+      title: "Panduan Teknis BSSN: Langkah Mitigasi Terhadap Ancaman Ransomware di Sektor Keuangan", 
+      link: "https://govcsirt.bssn.go.id", 
+      pubDate: now.toISOString(), 
+      contentSnippet: "Meningkatkan kewaspadaan siber nasional, BSSN mempublikasikan SOP pencadangan offline (3-2-1 backup) dan perlindungan kredensial admin sistem.",
+      imageUrl: "https://images.unsplash.com/photo-1614064641938-3bbee52942c7?w=800&auto=format&fit=crop&q=80"
+    },
+    { 
+      title: "Peringatan Eksploitasi Celah Keamanan Aplikasi Pesan Instan yang Rentan Penyadapan Data", 
+      link: "https://govcsirt.bssn.go.id", 
+      pubDate: yesterday.toISOString(), 
+      contentSnippet: "BSSN mengimbau masyarakat mengaktifkan verifikasi dua langkah (2FA) di seluruh platform pesan instan guna menangkal pengambilalihan akun.",
+      imageUrl: "https://images.unsplash.com/photo-1510511459019-5dda7724fd87?w=800&auto=format&fit=crop&q=80"
+    }
   ];
 
   try {
@@ -458,13 +539,17 @@ app.get("/api/rss-news", async (req, res) => {
         new Promise<any>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 4000))
       ]);
       if (cnnFeed && cnnFeed.items && cnnFeed.items.length > 0) {
-        cnnFeedItems = cnnFeed.items.slice(0, 4).map(item => ({
-          title: item.title || "",
-          link: item.link || "https://www.cnnindonesia.com/teknologi",
-          pubDate: item.pubDate || now.toISOString(),
-          contentSnippet: (item.contentSnippet || item.content || "").replace(/<[^>]*>/g, "").trim()
-        }));
-        console.log(`Successfully fetched ${cnnFeedItems.length} items from CNN Indonesia.`);
+        cnnFeedItems = cnnFeed.items.slice(0, 4).map(item => {
+          const extractedImg = extractImageFromRssItem(item);
+          return {
+            title: item.title || "",
+            link: item.link || "https://www.cnnindonesia.com/teknologi",
+            pubDate: item.pubDate || now.toISOString(),
+            contentSnippet: (item.contentSnippet || item.content || "").replace(/<[^>]*>/g, "").trim(),
+            imageUrl: extractedImg || "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&auto=format&fit=crop&q=80"
+          };
+        });
+        console.log(`Successfully fetched ${cnnFeedItems.length} items from CNN Indonesia with images.`);
       }
     } catch (e: any) {
       console.log("Informasi CNN Indonesia dimuat menggunakan basis data terenkripsi lokal JagaIN.");
@@ -478,13 +563,17 @@ app.get("/api/rss-news", async (req, res) => {
         new Promise<any>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 4000))
       ]);
       if (bssnFeed && bssnFeed.items && bssnFeed.items.length > 0) {
-        bssnFeedItems = bssnFeed.items.slice(0, 4).map(item => ({
-          title: item.title || "",
-          link: item.link || "https://govcsirt.bssn.go.id",
-          pubDate: item.pubDate || now.toISOString(),
-          contentSnippet: (item.contentSnippet || item.content || "").replace(/<[^>]*>/g, "").trim()
-        }));
-        console.log(`Successfully fetched ${bssnFeedItems.length} items from BSSN.`);
+        bssnFeedItems = bssnFeed.items.slice(0, 4).map(item => {
+          const extractedImg = extractImageFromRssItem(item);
+          return {
+            title: item.title || "",
+            link: item.link || "https://govcsirt.bssn.go.id",
+            pubDate: item.pubDate || now.toISOString(),
+            contentSnippet: (item.contentSnippet || item.content || "").replace(/<[^>]*>/g, "").trim(),
+            imageUrl: extractedImg || "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80"
+          };
+        });
+        console.log(`Successfully fetched ${bssnFeedItems.length} items from BSSN with images.`);
       }
     } catch (e: any) {
       console.log("Informasi BSSN dimuat menggunakan basis data terenkripsi lokal JagaIN.");
@@ -499,7 +588,7 @@ app.get("/api/rss-news", async (req, res) => {
     // Call Gemini to curate, combine, and format beautifully
     const prompt = `Anda adalah Redaktur Keamanan Siber Senior JagaIN AI. Tugas Anda adalah menyusun rangkuman berita keamanan digital terpercaya untuk masyarakat Indonesia.
     
-DI BAWAH INI ADALAH BERITA DARI KEDUA SUMBER:
+DI BAWAH INI ADALAH BERITA DARI KEDUA SUMBER (SETIAP BERITA MEMILIKI PROPERTI "imageUrl" NYATA):
 ${JSON.stringify(combinedInput, null, 2)}
 
 MISI ANDA:
@@ -507,9 +596,10 @@ MISI ANDA:
 2. Jangan menggabungkan kedua instansi tersebut ke dalam satu berita tunggal, melainkan buatkan objek terpisah yang jelas mana yang bersumber dari BSSN dan mana yang bersumber dari CNN Indonesia.
 3. Rangkum setiap rilis dengan bahasa Indonesia yang jelas, hangat, edukatif, dan mudah dipahami di handphone.
 4. SANGAT PENTING: Anda HARUS menyalin dan mempertahankan properti "linkUrl" yang persis dengan tautan asli berita (property "link" dari data di atas) sesuai dengan beritanya, agar pengguna dapat mengkliknya untuk berkunjung langsung ke portal aslinya!
-5. JANGAN PERNAH menambahkan kata "Bergilir", "bergilir", "Rotasi", atau penanda rotasi waktu lainnya ke dalam properti "source" atau konten teks manapun. Cukup gunakan "CNN Indonesia" atau "BSSN (Badan Siber & Sandi Negara)".
+5. SANGAT PENTING: Anda HARUS menyalin dan mempertahankan properti "imageUrl" dari berita sumber asli yang Anda rangkum. JANGAN diganti dengan gambar contoh atau tautan acak! Gambar ini adalah gambar asli berita.
+6. JANGAN PERNAH menambahkan kata "Bergilir", "bergilir", "Rotasi", atau penanda rotasi waktu lainnya ke dalam properti "source" atau konten teks manapun. Cukup gunakan "CNN Indonesia" atau "BSSN (Badan Siber & Sandi Negara)".
 
-Hasilkan output JSON yang VALID berupa array dari objek artikel, dengan struktur persis seperti ini:
+Hasilkan output JSON yang VALID berupa array dari objek artikel, dengan struktur persis seperti ini (pastikan menyalin imageUrl persis dari beritanya):
 [
   {
     "id": "synthetic-news-1",
@@ -517,7 +607,7 @@ Hasilkan output JSON yang VALID berupa array dari objek artikel, dengan struktur
     "category": "Kabar Tekno" atau "Peringatan Resmi" atau "Panduan Keamanan",
     "source": "BSSN (Badan Siber & Sandi Negara)" atau "CNN Indonesia",
     "date": "${todayStr}",
-    "imageUrl": "https://lh3.googleusercontent.com/aida-public/AB6AXuBT1iC5bIB3Tjy-vx-O5Cle-7wtbkYV3pu5YyH3YwDwgNgxcqCzeHyuKgZIGDDHpZhN27ExGAGYoBInF2atZxBIp6TQXmumIK-In7O_Ym8GV9RrNEb2iNJBpN3ylyPCyyotn6h_9oQyEwJvl3Ik0mWBxUgmArHkreulLEGnUMgUydMn93QcWYrE6hJE_WvY8yIc-W95j4Uu2yOyvomBtjNFmbWXzfJtpiM11zxDlr4J3R1SqJMk9JqTOHo9EiUECUQ74Y3eIEE4r8VR",
+    "imageUrl": "Nilai properti 'imageUrl' persis dari berita sumber asli di atas",
     "content": [
       "Paragraf 1: Ringkasan detail mengenai berita/rilis tersebut.",
       "Paragraf 2: Solusi taktis, tips pencegahan, atau rekomendasi tindakan konkret dari JagaIN untuk melindungi diri."
@@ -542,7 +632,7 @@ PENTING: Output HARUS murni berupa array JSON yang valid tanpa markdown code blo
               category: { type: "STRING", description: "Category name" },
               source: { type: "STRING", description: "CNN Indonesia or BSSN (Badan Siber & Sandi Negara)" },
               date: { type: "STRING", description: "Formatted date string" },
-              imageUrl: { type: "STRING", description: "The image URL exactly as provided in prompt" },
+              imageUrl: { type: "STRING", description: "The image URL exactly copied from the source article" },
               content: {
                 type: "ARRAY",
                 items: { type: "STRING" },
@@ -590,7 +680,7 @@ PENTING: Output HARUS murni berupa array JSON yang valid tanpa markdown code blo
         category: "Kabar Tekno",
         source: "CNN Indonesia",
         date: todayStr,
-        imageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuBT1iC5bIB3Tjy-vx-O5Cle-7wtbkYV3pu5YyH3YwDwgNgxcqCzeHyuKgZIGDDHpZhN27ExGAGYoBInF2atZxBIp6TQXmumIK-In7O_Ym8GV9RrNEb2iNJBpN3ylyPCyyotn6h_9oQyEwJvl3Ik0mWBxUgmArHkreulLEGnUMgUydMn93QcWYrE6hJE_WvY8yIc-W95j4Uu2yOyvomBtjNFmbWXzfJtpiM11zxDlr4J3R1SqJMk9JqTOHo9EiUECUQ74Y3eIEE4r8VR",
+        imageUrl: "https://images.unsplash.com/photo-1563986768609-322da13575f3?w=800&auto=format&fit=crop&q=80",
         content: [
           "CNN Indonesia Teknologi melaporkan variasi modus penipuan berkedok kurir paket, undangan pernikahan digital, hingga tagihan pajak palsu pemerintah.",
           "Para korban melaporkan bahwa setelah file .apk terpasang, saldo tabungan mereka terkuras karena pelaku berhasil menyadap kode OTP SMS perbankan."
@@ -603,7 +693,7 @@ PENTING: Output HARUS murni berupa array JSON yang valid tanpa markdown code blo
         category: "Peringatan Resmi",
         source: "BSSN (Badan Siber & Sandi Negara)",
         date: todayStr,
-        imageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuBT1iC5bIB3Tjy-vx-O5Cle-7wtbkYV3pu5YyH3YwDwgNgxcqCzeHyuKgZIGDDHpZhN27ExGAGYoBInF2atZxBIp6TQXmumIK-In7O_Ym8GV9RrNEb2iNJBpN3ylyPCyyotn6h_9oQyEwJvl3Ik0mWBxUgmArHkreulLEGnUMgUydMn93QcWYrE6hJE_WvY8yIc-W95j4Uu2yOyvomBtjNFmbWXzfJtpiM11zxDlr4J3R1SqJMk9JqTOHo9EiUECUQ74Y3eIEE4r8VR",
+        imageUrl: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80",
         content: [
           "Badan Siber dan Sandi Negara (BSSN) mengimbau seluruh masyarakat Indonesia untuk memperbarui sistem operasi gawai cerdas guna menutup celah keamanan aktif.",
           "Pastikan untuk mengaktifkan Play Protect di Android Anda dan jangan pernah menyetujui izin aplikasi yang mencurigakan."
@@ -616,7 +706,7 @@ PENTING: Output HARUS murni berupa array JSON yang valid tanpa markdown code blo
         category: "Kabar Tekno",
         source: "CNN Indonesia",
         date: yesterdayStr,
-        imageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuBT1iC5bIB3Tjy-vx-O5Cle-7wtbkYV3pu5YyH3YwDwgNgxcqCzeHyuKgZIGDDHpZhN27ExGAGYoBInF2atZxBIp6TQXmumIK-In7O_Ym8GV9RrNEb2iNJBpN3ylyPCyyotn6h_9oQyEwJvl3Ik0mWBxUgmArHkreulLEGnUMgUydMn93QcWYrE6hJE_WvY8yIc-W95j4Uu2yOyvomBtjNFmbWXzfJtpiM11zxDlr4J3R1SqJMk9JqTOHo9EiUECUQ74Y3eIEE4r8VR",
+        imageUrl: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&auto=format&fit=crop&q=80",
         content: [
           "Pemberitaan teknologi terkini memantau tren serangan kecerdasan buatan baru yang memicu kepanikan publik melalui telepon palsu kloning suara keluarga.",
           "Gunakan verifikasi konfirmasi verbal khusus jika menerima panggilan mencurigakan mengenai anggota keluarga."
@@ -629,7 +719,7 @@ PENTING: Output HARUS murni berupa array JSON yang valid tanpa markdown code blo
         category: "Peringatan Resmi",
         source: "BSSN (Badan Siber & Sandi Negara)",
         date: todayStr,
-        imageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuBT1iC5bIB3Tjy-vx-O5Cle-7wtbkYV3pu5YyH3YwDwgNgxcqCzeHyuKgZIGDDHpZhN27ExGAGYoBInF2atZxBIp6TQXmumIK-In7O_Ym8GV9RrNEb2iNJBpN3ylyPCyyotn6h_9oQyEwJvl3Ik0mWBxUgmArHkreulLEGnUMgUydMn93QcWYrE6hJE_WvY8yIc-W95j4Uu2yOyvomBtjNFmbWXzfJtpiM11zxDlr4J3R1SqJMk9JqTOHo9EiUECUQ74Y3eIEE4r8VR",
+        imageUrl: "https://images.unsplash.com/photo-1614064641938-3bbee52942c7?w=800&auto=format&fit=crop&q=80",
         content: [
           "BSSN secara berkala mempublikasikan imbauan keamanan agar warga berhati-hati terhadap pesan instan WhatsApp berisi dokumen palsu yang berekstensi .apk.",
           "Langkah penanganan utama jika terlanjur klik: segera aktifkan mode pesawat, cabut SIM Card, dan periksa aplikasi terinstall terbaru."

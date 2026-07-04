@@ -36,11 +36,54 @@ import {
   Clock,
   ExternalLink,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Heart,
+  MessageCircle
 } from "lucide-react";
 import { Article, Notification, ChatMessage, HoaxResult, LinkResult } from "./types";
-import { ARTICLES, INITIAL_NOTIFICATIONS } from "./data";
+import { ARTICLES, INITIAL_NOTIFICATIONS, INDONESIA_NEWS, SOSMED_TRENDS } from "./data";
 import { sanitizeSensitiveData, sanitizeUrlCredentials, obfuscateData, deobfuscateData } from "./utils/security";
+
+function GununganWatermark({ opacity = "opacity-[0.03]" }: { opacity?: string }) {
+  return (
+    <div className={`absolute inset-0 flex justify-center items-center pointer-events-none select-none z-0 overflow-hidden ${opacity}`}>
+      <svg width="260" height="340" viewBox="0 0 100 140" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-[#00D4AA]">
+        {/* Gunungan border - nested pointed shapes */}
+        <path d="M50 5 C75 40 95 85 90 120 C85 130 15 130 10 120 C5 85 25 40 50 5 Z" stroke="currentColor" strokeWidth="0.8" strokeDasharray="1 3" />
+        <path d="M50 12 C72 45 90 87 85 118 C80 125 20 125 15 118 C10 87 28 45 50 12 Z" stroke="currentColor" strokeWidth="0.5" />
+        
+        {/* Tree of life trunk */}
+        <line x1="50" y1="120" x2="50" y2="45" stroke="currentColor" strokeWidth="1.2" />
+        <path d="M50 120 L40 130 M50 120 L60 130" stroke="currentColor" strokeWidth="1" />
+        
+        {/* Branches */}
+        <path d="M50 105 Q70 100 78 85" stroke="currentColor" strokeWidth="0.6" />
+        <path d="M50 105 Q30 100 22 85" stroke="currentColor" strokeWidth="0.6" />
+        
+        <path d="M50 90 Q68 85 72 70" stroke="currentColor" strokeWidth="0.6" />
+        <path d="M50 90 Q32 85 28 70" stroke="currentColor" strokeWidth="0.6" />
+        
+        <path d="M50 75 Q65 70 68 58" stroke="currentColor" strokeWidth="0.6" />
+        <path d="M50 75 Q35 70 32 58" stroke="currentColor" strokeWidth="0.6" />
+
+        {/* Traditional wings representing guard / wings of protection */}
+        <path d="M50 115 C62 110 72 100 75 92" stroke="currentColor" strokeWidth="0.8" />
+        <path d="M50 115 C38 110 28 100 25 92" stroke="currentColor" strokeWidth="0.8" />
+
+        {/* Traditional gate (Candi Bentar) representation at the base of the mountain */}
+        <rect x="42" y="110" width="16" height="10" stroke="currentColor" strokeWidth="0.6" rx="1" />
+        <line x1="50" y1="110" x2="50" y2="120" stroke="currentColor" strokeWidth="0.6" />
+        
+        {/* Tiny leaves dots */}
+        <circle cx="50" cy="35" r="2" fill="currentColor" opacity="0.4" />
+        <circle cx="70" cy="80" r="1.5" fill="currentColor" opacity="0.3" />
+        <circle cx="30" cy="80" r="1.5" fill="currentColor" opacity="0.3" />
+        <circle cx="65" cy="65" r="1.5" fill="currentColor" opacity="0.3" />
+        <circle cx="35" cy="65" r="1.5" fill="currentColor" opacity="0.3" />
+      </svg>
+    </div>
+  );
+}
 
 export default function App() {
   // Navigation & View State
@@ -133,6 +176,26 @@ export default function App() {
   const [isRssLoading, setIsRssLoading] = useState(false);
   const [dangerousLinks, setDangerousLinks] = useState<any[]>([]);
   const [isDbLoading, setIsDbLoading] = useState(false);
+
+  // State for Infinite Scroll (Berita Terbaru Indonesia)
+  const [visibleCount, setVisibleCount] = useState(10);
+  const [isInfiniteLoading, setIsInfiniteLoading] = useState(false);
+  const [newsFilter, setNewsFilter] = useState<'terkini' | 'edukasi'>('terkini');
+
+  // Social Media Connection and Synchronization states
+  const [isSyncingSosmed, setIsSyncingSosmed] = useState(false);
+  const [lastSosmedSyncTime, setLastSosmedSyncTime] = useState<string>("Baru saja");
+  
+  const handleSyncSosmed = () => {
+    setIsSyncingSosmed(true);
+    setTimeout(() => {
+      setIsSyncingSosmed(false);
+      const now = new Date();
+      setLastSosmedSyncTime(`Hari ini, ${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`);
+    }, 1200);
+  };
+
+
   
   // New Dangerous Link report inputs
   const [reportUrlInput, setReportUrlInput] = useState("");
@@ -156,7 +219,7 @@ export default function App() {
         const res = await fetch("/api/rss-news");
         const data = await res.json();
         if (data && data.length > 0) {
-          setArticles(data);
+          setArticles([...data, ...INDONESIA_NEWS, ...SOSMED_TRENDS]);
         } else {
           throw new Error("No articles parsed");
         }
@@ -164,7 +227,7 @@ export default function App() {
         console.error("Failed to load RSS news:", err);
         // Direct local high-quality client-side fallback to prevent empty screen/errors
         const todayStr = new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
-        setArticles([
+        const fallbackList = [
           {
             id: "fallback-comp-cnn-1",
             title: "Waspada! Serangan Phishing Link APK Palsu Masih Mengintai Pengguna WhatsApp",
@@ -191,7 +254,8 @@ export default function App() {
             ],
             linkUrl: "https://govcsirt.bssn.go.id"
           }
-        ]);
+        ];
+        setArticles([...fallbackList, ...INDONESIA_NEWS, ...SOSMED_TRENDS]);
       } finally {
         setIsRssLoading(false);
       }
@@ -283,6 +347,8 @@ export default function App() {
     localStorage.setItem("jagain_chat_messages", obfuscateData(JSON.stringify(messages)));
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+
 
   // Unread notifications count
   const unreadCount = notifications.filter(n => n.isUnread).length;
@@ -469,6 +535,8 @@ export default function App() {
     }
   };
 
+
+
   // 4. Send Feedback Form
   const handleSubmitFeedback = (e: React.FormEvent) => {
     e.preventDefault();
@@ -488,16 +556,232 @@ export default function App() {
     setSubView(null);
   };
 
+  // 5. Infinite Scroll Helpers
+  const loadMoreArticles = () => {
+    if (isInfiniteLoading) return;
+    setIsInfiniteLoading(true);
+    setTimeout(() => {
+      setVisibleCount(prev => prev + 3);
+      setIsInfiniteLoading(false);
+    }, 1200);
+  };
+
+  const getDisplayArticles = () => {
+    if (!articles || articles.length === 0) return [];
+    
+    const isCyberArticle = (art: Article) => {
+      const titleLower = art.title.toLowerCase();
+      const catLower = art.category.toLowerCase();
+      const srcLower = art.source.toLowerCase();
+      const contentLower = (art.content || []).join(" ").toLowerCase();
+
+      const keywords = [
+        'cyber', 'siber', 'hacker', 'phishing', 'ransomware', 'malware', 
+        'keamanan data', 'kebocoran data', 'deepfake', 'penyadapan', 
+        'spyware', 'keamanan digital', 'security', 'celah keamanan', 'retas',
+        'apk', 'surat tilang', 'undangan pernikahan', 'modus penipuan', 'otp sms'
+      ];
+
+      return (
+        keywords.some(kw => 
+          titleLower.includes(kw) || 
+          catLower.includes(kw) || 
+          srcLower.includes(kw) || 
+          contentLower.includes(kw)
+        ) || 
+        srcLower.includes('bssn') || 
+        art.id.includes('fallback') ||
+        art.id.includes('synthetic-news')
+      );
+    };
+
+    const isSocialMediaPost = (art: Article) => {
+      const catLower = art.category.toLowerCase();
+      const srcLower = art.source.toLowerCase();
+      const idLower = art.id.toLowerCase();
+      return (
+        idLower.includes('sosmed') ||
+        idLower.includes('trend') ||
+        catLower.includes('tiktok') ||
+        catLower.includes('instagram') ||
+        catLower.includes('threads') ||
+        catLower.includes('viral') ||
+        catLower.includes('sosmed') ||
+        srcLower.includes('@') ||
+        srcLower.includes('menfess') ||
+        srcLower.includes('tiktok') ||
+        srcLower.includes('instagram') ||
+        srcLower.includes('threads') ||
+        srcLower.includes('x_trend')
+      );
+    };
+
+    // Filter first based on newsFilter
+    let filtered = [...articles];
+    if (newsFilter === 'edukasi') {
+      filtered = articles.filter(art => {
+        const cat = art.category.toLowerCase();
+        const src = art.source.toLowerCase();
+        return (
+          src.includes('bssn') || 
+          cat.includes('penting') || 
+          cat.includes('peringatan') || 
+          cat.includes('edukasi') || 
+          cat.includes('panduan') ||
+          isCyberArticle(art)
+        );
+      });
+    } else {
+      // newsFilter === 'terkini'
+      // Only show articles originating from IG, TikTok, and X, excluding cyber-related topics!
+      filtered = articles.filter(art => {
+        return isSocialMediaPost(art) && !isCyberArticle(art);
+      });
+
+      // Priority sort for "Berita Terkini":
+      // 1. Social media hits (Score 100)
+      // 2. Disasters on social media (Score 80)
+      // 3. Politics on social media (Score 60)
+      // 4. General/Common issues (Score 40)
+      const getPriorityScore = (art: Article) => {
+        const titleLower = art.title.toLowerCase();
+        const catLower = art.category.toLowerCase();
+
+        const isDisaster = 
+          catLower.includes('bencana') || 
+          titleLower.includes('gempa') || 
+          titleLower.includes('banjir') || 
+          titleLower.includes('merapi') || 
+          titleLower.includes('cuaca ekstrem') || 
+          titleLower.includes('gunung') || 
+          titleLower.includes('bencana');
+        
+        const isPolitics = 
+          catLower.includes('politik') || 
+          titleLower.includes('dpr') || 
+          titleLower.includes('pemilu') || 
+          titleLower.includes('kpu') || 
+          titleLower.includes('ruu') || 
+          titleLower.includes('parlemen') ||
+          titleLower.includes('politik');
+
+        if (!isDisaster && !isPolitics) return 100; // Social media hits (general lifestyle/viral trends)
+        if (isDisaster) return 80; // Disaster-related
+        if (isPolitics) return 60; // Politics-related
+        return 40; // General
+      };
+
+      filtered.sort((a, b) => getPriorityScore(b) - getPriorityScore(a));
+    }
+
+    const displayList = [...filtered];
+    if (displayList.length === 0) return [];
+
+    // If the visibleCount requested is more than we have, clone/duplicate existing ones infinitely to make it a continuous feed
+    while (displayList.length < visibleCount) {
+      const cycleArticles = filtered.map((art, idx) => {
+        return {
+          ...art,
+          id: `${art.id}-infinite-${displayList.length}-${idx}`,
+          title: `${art.title} (Kabar Terkait)`,
+          date: "Baru saja"
+        };
+      });
+      displayList.push(...cycleArticles);
+    }
+
+    return displayList.slice(0, visibleCount);
+  };
+
+  const getVerificationReferences = (art: Article) => {
+    if (!art) return [];
+    const titleLower = art.title.toLowerCase();
+    
+    // Find non-social-media articles (official news / CSIRT / BSSN)
+    const officialArticles = articles.filter(a => {
+      const idLower = a.id.toLowerCase();
+      const catLower = a.category.toLowerCase();
+      const srcLower = a.source.toLowerCase();
+      const isSosmed = 
+        idLower.includes('sosmed') ||
+        idLower.includes('trend') ||
+        catLower.includes('tiktok') ||
+        catLower.includes('instagram') ||
+        catLower.includes('threads') ||
+        catLower.includes('viral') ||
+        catLower.includes('sosmed') ||
+        srcLower.includes('@') ||
+        srcLower.includes('menfess') ||
+        srcLower.includes('tiktok') ||
+        srcLower.includes('instagram') ||
+        srcLower.includes('threads') ||
+        srcLower.includes('x_trend');
+      return !isSosmed;
+    });
+
+    if (titleLower.includes('gempa') || titleLower.includes('bencana') || titleLower.includes('banjir')) {
+      return officialArticles.filter(a => a.title.toLowerCase().includes('bmkg') || a.category.toLowerCase().includes('bencana')).slice(0, 2);
+    }
+    if (titleLower.includes('merapi') || titleLower.includes('gunung')) {
+      return officialArticles.filter(a => a.title.toLowerCase().includes('merapi') || a.title.toLowerCase().includes('bpptkg') || a.category.toLowerCase().includes('bencana')).slice(0, 2);
+    }
+    if (titleLower.includes('voting') || titleLower.includes('kpu') || titleLower.includes('pemilu')) {
+      return officialArticles.filter(a => a.title.toLowerCase().includes('kpu') || a.title.toLowerCase().includes('simulasi') || a.title.toLowerCase().includes('voting')).slice(0, 2);
+    }
+    if (titleLower.includes('ruu') || titleLower.includes('dpr') || titleLower.includes('parlemen') || titleLower.includes('keamanan data')) {
+      return officialArticles.filter(a => a.title.toLowerCase().includes('dpr') || a.title.toLowerCase().includes('ruu') || a.title.toLowerCase().includes('parlemen') || a.title.toLowerCase().includes('data pribadi')).slice(0, 2);
+    }
+
+    // Default: return general official portal articles (like MRT Jakarta or Sate Padang)
+    return officialArticles.filter(a => a.id.includes('indo-news-1') || a.id.includes('indo-news-5') || a.id.includes('indo-news-4')).slice(0, 1);
+  };
+
+  const getSocialMediaInfo = (art: Article) => {
+    if (!art) return { platform: "Media Sosial", color: "from-secondary to-primary", badgeColor: "bg-secondary/10 text-secondary border-secondary/20", label: "💬 Sorotan Sosmed" };
+    const srcLower = art.source.toLowerCase();
+    const catLower = art.category.toLowerCase();
+    if (srcLower.includes('tiktok') || catLower.includes('tiktok')) {
+      return { platform: "TikTok", color: "from-[#fe2c55] to-[#25f4ee]", badgeColor: "bg-[#fe2c55]/10 text-[#fe2c55] border-[#fe2c55]/20", label: "🎵 TikTok FYP Trend" };
+    }
+    if (srcLower.includes('instagram') || srcLower.includes('ig') || catLower.includes('instagram') || catLower.includes('kuliner')) {
+      return { platform: "Instagram", color: "from-[#f12711] to-[#f5af19]", badgeColor: "bg-[#f12711]/10 text-[#f12711] border-[#f12711]/20", label: "📸 Instagram Viral" };
+    }
+    if (srcLower.includes('x') || srcLower.includes('twitter') || srcLower.includes('menfess') || catLower.includes('x') || catLower.includes('thread')) {
+      return { platform: "X (Twitter)", color: "from-[#1da1f2] to-[#0e1726]", badgeColor: "bg-[#1da1f2]/10 text-[#1da1f2] border-[#1da1f2]/20", label: "🐦 X Trending Topic" };
+    }
+    return { platform: "Media Sosial", color: "from-secondary to-primary", badgeColor: "bg-secondary/10 text-secondary border-secondary/20", label: "💬 Sorotan Sosmed" };
+  };
+
+  const handleMainScroll = (e: React.UIEvent<HTMLElement>) => {
+    if (activeTab !== 'kabar' || subView) return;
+    const target = e.currentTarget;
+    const threshold = 100; // pixels from bottom to trigger more loading
+    const isNearBottom = target.scrollHeight - target.scrollTop - target.clientHeight < threshold;
+    if (isNearBottom && !isInfiniteLoading) {
+      loadMoreArticles();
+    }
+  };
+
   const selectedArticle = articles.find(a => a.id === selectedArticleId);
 
   return (
-    <div className="min-h-screen bg-[#050a10] flex justify-center items-center py-0 sm:py-6 px-0 sm:px-4">
+    <div className="min-h-screen bg-[#050a10] bg-batik-kawung flex justify-center items-center py-0 sm:py-6 px-0 sm:px-4 relative overflow-hidden">
+      {/* Decorative Outer Ambient Glows inspired by traditional Indonesian colors */}
+      <div className="absolute top-0 left-0 w-96 h-96 bg-secondary/10 rounded-full blur-3xl pointer-events-none select-none" />
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-[#d4af37]/10 rounded-full blur-3xl pointer-events-none select-none" />
+
       {/* Container simulating a phone screen on desktop, or flexible responsive layout */}
-      <div className="w-full max-w-md bg-background h-[100dvh] sm:h-[880px] sm:rounded-3xl sm:border sm:border-white/10 shadow-2xl overflow-hidden flex flex-col relative">
+      <div className="w-full max-w-md bg-[#0a141e] h-[100dvh] sm:h-[880px] sm:rounded-3xl sm:border sm:border-white/10 shadow-2xl overflow-hidden flex flex-col relative">
+        
+        {/* Full Screen High Visibility Batik Background Overlay */}
+        <div className="absolute inset-0 bg-batik-kawung opacity-[0.22] pointer-events-none select-none z-0" />
+        
+        {/* Top Decorative Batik Band */}
+        <div className="h-2 bg-batik-band w-full shrink-0 relative z-50 border-b border-[#d4af37]/35 opacity-100" />
         
         {/* TOP BAR / HEADER */}
-        <header className="absolute top-0 left-0 w-full z-40 h-16 bg-background/50 backdrop-blur-lg border-b border-white/5 flex justify-between items-center px-5">
-          <div className="flex items-center gap-3">
+        <header className="absolute top-2 left-0 w-full z-40 h-16 bg-[#0a141e]/80 backdrop-blur-lg border-b border-white/5 flex justify-between items-center px-5">
+          <div className="flex items-center gap-3 relative z-10">
             {subView ? (
               <button
                 onClick={() => {
@@ -514,7 +798,7 @@ export default function App() {
               <ShieldCheck className="w-7 h-7 text-secondary fill-secondary/10" />
             )}
             
-            <h1 className="font-sans text-xl font-bold tracking-tight text-on-background">
+            <h1 className="font-sans text-xl font-bold tracking-tight text-on-background flex items-center gap-1.5">
               {subView === 'notifications' && "Notifikasi"}
               {subView === 'feedback' && "Kirim Masukan"}
               {subView === 'panduan-hoax' && "Panduan Cek Hoax"}
@@ -522,7 +806,7 @@ export default function App() {
               {subView === 'kabar-detail' && "Kabar Detail"}
               {!subView && (
                 <>
-                  JagaIN
+                  <span className="bg-gradient-to-r from-secondary via-[#d4af37] to-secondary bg-clip-text text-transparent font-extrabold tracking-tight">JagaIN</span>
                   {activeTab === 'ai' && (
                     <span className="text-secondary font-semibold text-base ml-2 border-l border-white/20 pl-2">Tanya AI</span>
                   )}
@@ -547,7 +831,7 @@ export default function App() {
         </header>
 
         {/* MAIN BODY AREA */}
-        <main className="flex-1 overflow-y-auto pt-20 pb-24 no-scrollbar">
+        <main onScroll={handleMainScroll} className="flex-1 overflow-y-auto pt-20 pb-24 no-scrollbar">
           <AnimatePresence mode="wait">
             
             {/* SUBVIEWS (MODALS/FULL PAGES OVER TAB MAIN CONTENT) */}
@@ -946,8 +1230,10 @@ export default function App() {
                   </a>
                 </div>
 
+
+
                 {/* Interactive AI Verification Card inside Article */}
-                <div className="px-5 pt-4">
+                <div className="px-5">
                   <div className="glass-card p-5 rounded-2xl border-secondary/30 relative overflow-hidden">
                     <div className="absolute -right-5 -top-5 opacity-10">
                       <ShieldCheck className="w-24 h-24 text-secondary" />
@@ -976,21 +1262,22 @@ export default function App() {
                 </div>
               </motion.div>
             )}
-
-            {/* MAIN NAVIGATION TABS */}
+                      {/* MAIN NAVIGATION TABS */}
             {!subView && activeTab === 'kabar' && (
               <motion.div
                 key="tab-kabar"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="px-5 space-y-6 animate-fade-in"
+                className="px-5 space-y-6 animate-fade-in relative overflow-hidden w-full"
               >
+                <GununganWatermark opacity="opacity-[0.035]" />
+                <div className="relative z-10 space-y-6">
                 {/* Section Title */}
                 <div>
-                  <h2 className="text-2xl font-bold tracking-tight text-on-background">Kabar Keamanan</h2>
+                  <h2 className="text-2xl font-bold tracking-tight text-on-background">Kabar Keamanan & Berita Terbaru</h2>
                   <p className="text-sm text-on-surface-variant mt-1 leading-relaxed">
-                    Tetap waspada dengan berita terhangat dan edukasi keamanan siber terpercaya.
+                    Tetap waspada dengan berita terhangat, keamanan siber, dan kabar terpopuler seputar Indonesia.
                   </p>
                 </div>
 
@@ -1025,7 +1312,7 @@ export default function App() {
                 {/* News feed */}
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold tracking-widest text-on-surface-variant uppercase">BERITA TERBARU (LIVE RSS)</span>
+                    <span className="text-xs font-bold tracking-widest text-on-surface-variant uppercase">BERITA & TREN TERBARU INDONESIA</span>
                     {isRssLoading && (
                       <span className="text-[10px] text-secondary flex items-center gap-1">
                         <span className="w-1.5 h-1.5 bg-secondary rounded-full animate-ping"></span>
@@ -1033,6 +1320,32 @@ export default function App() {
                       </span>
                     )}
                   </div>
+
+                  {/* Category Filter Chips */}
+                  <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                    <button
+                      onClick={() => { setNewsFilter('terkini'); setVisibleCount(10); }}
+                      className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all border ${
+                        newsFilter === 'terkini'
+                          ? 'bg-secondary text-background border-secondary font-bold shadow-[0_0_10px_rgba(0,212,170,0.2)]'
+                          : 'bg-white/5 text-on-surface-variant border-white/10 hover:border-white/20'
+                      }`}
+                    >
+                      🔥 Berita Terkini
+                    </button>
+                    <button
+                      onClick={() => { setNewsFilter('edukasi'); setVisibleCount(10); }}
+                      className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all border ${
+                        newsFilter === 'edukasi'
+                          ? 'bg-secondary text-background border-secondary font-bold shadow-[0_0_10px_rgba(0,212,170,0.2)]'
+                          : 'bg-white/5 text-on-surface-variant border-white/10 hover:border-white/20'
+                      }`}
+                    >
+                      💡 Edukasi & BSSN
+                    </button>
+                  </div>
+
+
 
                   {isRssLoading && articles.length === 0 ? (
                     // Skeleton Loader for RSS Articles
@@ -1049,45 +1362,82 @@ export default function App() {
                         </div>
                       </div>
                     ))
+                  ) : getDisplayArticles().length === 0 ? (
+                    <div className="glass-card p-8 rounded-2xl text-center border border-white/5 space-y-3">
+                      <Newspaper className="w-10 h-10 text-on-surface-variant/30 mx-auto animate-pulse" />
+                      <p className="text-sm text-on-surface-variant">Tidak ada berita dalam kategori ini saat ini.</p>
+                    </div>
                   ) : (
-                    Array.isArray(articles) && articles.map((article) => (
-                      <div
-                        key={article.id}
-                        onClick={() => {
-                          setSelectedArticleId(article.id);
-                          setSubView('kabar-detail');
-                        }}
-                        className="glass-card rounded-2xl overflow-hidden cursor-pointer hover:border-white/10 hover:shadow-lg transition-all flex flex-col group border border-white/5 hover:border-secondary/20"
-                      >
-                        <div className="h-40 w-full relative bg-surface-container overflow-hidden">
-                          <img
-                            className="w-full h-full object-cover opacity-70 group-hover:scale-105 transition-transform duration-500"
-                            referrerPolicy="no-referrer"
-                            alt={article.title}
-                            src={article.imageUrl || "https://lh3.googleusercontent.com/aida-public/AB6AXuBT1iC5bIB3Tjy-vx-O5Cle-7wtbkYV3pu5YyH3YwDwgNgxcqCzeHyuKgZIGDDHpZhN27ExGAGYoBInF2atZxBIp6TQXmumIK-In7O_Ym8GV9RrNEb2iNJBpN3ylyPCyyotn6h_9oQyEwJvl3Ik0mWBxUgmArHkreulLEGnUMgUydMn93QcWYrE6hJE_WvY8yIc-W95j4Uu2yOyvomBtjNFmbWXzfJtpiM11zxDlr4J3R1SqJMk9JqTOHo9EiUECU74Y3eIEE4r8VR"}
-                            onError={(e) => {
-                              (e.currentTarget as HTMLImageElement).src = "https://lh3.googleusercontent.com/aida-public/AB6AXuBT1iC5bIB3Tjy-vx-O5Cle-7wtbkYV3pu5YyH3YwDwgNgxcqCzeHyuKgZIGDDHpZhN27ExGAGYoBInF2atZxBIp6TQXmumIK-In7O_Ym8GV9RrNEb2iNJBpN3ylyPCyyotn6h_9oQyEwJvl3Ik0mWBxUgmArHkreulLEGnUMgUydMn93QcWYrE6hJE_WvY8yIc-W95j4Uu2yOyvomBtjNFmbWXzfJtpiM11zxDlr4J3R1SqJMk9JqTOHo9EiUECU74Y3eIEE4r8VR";
-                            }}
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-transparent"></div>
-                          <span className="absolute top-4 left-4 bg-secondary text-background font-bold px-2 py-0.5 rounded text-[9px] uppercase tracking-wider">
-                            {article.category}
-                          </span>
-                          <span className="absolute bottom-4 right-4 text-[10px] bg-background/80 text-secondary border border-secondary/20 px-2 py-0.5 rounded-full flex items-center gap-1 font-semibold">
-                            <ExternalLink className="w-2.5 h-2.5" /> RSS Feed
-                          </span>
-                        </div>
-                        <div className="p-4 space-y-2">
-                          <h4 className="font-bold text-sm text-on-background line-clamp-2 leading-snug group-hover:text-secondary transition-colors">
-                            {article.title}
-                          </h4>
-                          <div className="flex items-center justify-between text-xs text-on-surface-variant pt-1 border-t border-white/5">
-                            <span className="font-semibold text-secondary">{article.source}</span>
-                            <span>{article.date}</span>
+                    Array.isArray(articles) && getDisplayArticles().map((article) => {
+                      const smInfo = getSocialMediaInfo(article);
+                      const isSos = newsFilter === 'terkini';
+                      
+                      return (
+                        <div
+                          key={article.id}
+                          onClick={() => {
+                            setSelectedArticleId(article.id);
+                            setSubView('kabar-detail');
+                          }}
+                          className={`glass-card rounded-2xl overflow-hidden cursor-pointer hover:border-white/10 hover:shadow-lg transition-all flex flex-col group border ${
+                            isSos ? 'border-white/5 hover:border-secondary/30' : 'border-white/5 hover:border-secondary/20'
+                          }`}
+                        >
+                          <div className="h-40 w-full relative bg-surface-container overflow-hidden">
+                            <img
+                              className="w-full h-full object-cover opacity-70 group-hover:scale-105 transition-transform duration-500"
+                              referrerPolicy="no-referrer"
+                              alt={article.title}
+                              src={article.imageUrl || "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800&auto=format&fit=crop&q=80"}
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).src = "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800&auto=format&fit=crop&q=80";
+                              }}
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-transparent"></div>
+                            
+                            {/* Accent brand border for Social Media */}
+                            {isSos && (
+                              <div className={`absolute top-0 inset-x-0 h-1 bg-gradient-to-r ${smInfo.color}`}></div>
+                            )}
+
+                            <span className={`absolute top-4 left-4 font-bold px-2 py-0.5 rounded text-[9px] uppercase tracking-wider ${
+                              isSos ? smInfo.badgeColor : 'bg-secondary text-background'
+                            }`}>
+                              {article.category}
+                            </span>
+                            
+                            <span className="absolute bottom-4 right-4 text-[10px] bg-background/80 text-secondary border border-secondary/20 px-2 py-0.5 rounded-full flex items-center gap-1 font-semibold">
+                              <ExternalLink className="w-2.5 h-2.5" /> {isSos ? smInfo.platform : 'Portal Berita'}
+                            </span>
+                          </div>
+                          <div className="p-4 space-y-2">
+                            <h4 className="font-bold text-sm text-on-background line-clamp-2 leading-snug group-hover:text-secondary transition-colors">
+                              {article.title}
+                            </h4>
+                            <div className="flex items-center justify-between text-xs text-on-surface-variant pt-1 border-t border-white/5">
+                              <span className="font-semibold text-secondary">{article.source}</span>
+                              <span>{article.date}</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
+                  )}
+
+                  {/* Infinite Scroll Load Indicator */}
+                  {articles.length > 0 && (
+                    <div className="py-4 flex flex-col items-center justify-center gap-2 border-t border-white/5 mt-2">
+                      {isInfiniteLoading ? (
+                        <div className="flex items-center gap-2 text-secondary text-xs font-semibold tracking-wider uppercase animate-pulse">
+                          <span className="w-1.5 h-1.5 bg-secondary rounded-full animate-ping" />
+                          Memuat berita lainnya...
+                        </div>
+                      ) : (
+                        <div className="text-[10px] text-on-surface-variant/40 font-mono tracking-wider uppercase text-center animate-pulse">
+                          Gulir ke bawah untuk memuat berita lainnya
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -1108,6 +1458,7 @@ export default function App() {
                   </div>
                   <ChevronRight className="w-5 h-5 text-on-surface-variant group-hover:translate-x-1 transition-transform" />
                 </div>
+                </div>
               </motion.div>
             )}
 
@@ -1117,8 +1468,10 @@ export default function App() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="px-5 space-y-6"
+                className="px-5 space-y-6 relative overflow-hidden"
               >
+                <GununganWatermark opacity="opacity-[0.035]" />
+                <div className="relative z-10 space-y-6">
                 {/* Page Title Section */}
                 <div>
                   <h2 className="text-2xl font-bold tracking-tight text-on-background flex items-center gap-2">
@@ -1198,6 +1551,7 @@ export default function App() {
                     <div className="text-center py-6 text-xs text-on-surface-variant/40">Belum ada riwayat pengecekan.</div>
                   )}
                 </section>
+                </div>
               </motion.div>
             )}
 
@@ -1207,8 +1561,10 @@ export default function App() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="px-5 space-y-6"
+                className="px-5 space-y-6 relative overflow-hidden"
               >
+                <GununganWatermark opacity="opacity-[0.035]" />
+                <div className="relative z-10 space-y-6">
                 {/* Title & Subtitle */}
                 <div>
                   <h2 className="text-2xl font-bold tracking-tight text-on-background flex items-center gap-2">
@@ -1454,6 +1810,7 @@ export default function App() {
                     </button>
                   </div>
                 </section>
+                </div>
               </motion.div>
             )}
 
@@ -1463,21 +1820,23 @@ export default function App() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="h-full flex flex-col pt-1 bg-[#0a141e]/50"
+                className="absolute top-[72px] bottom-20 left-0 right-0 z-30 flex flex-col bg-[#0a141e] overflow-hidden"
               >
-                {/* Welcome Message Panel */}
-                <div className="flex flex-col items-center text-center px-5 mb-4 mt-2">
-                  <div className="w-14 h-14 rounded-full bg-primary-container flex items-center justify-center mb-2.5 shadow-lg">
-                    <Bot className="w-7 h-7 text-secondary" />
+                <GununganWatermark opacity="opacity-[0.02]" />
+                
+                {/* Scrollable Chat Area */}
+                <div className="flex-1 overflow-y-auto space-y-4 px-5 pt-4 pb-48 no-scrollbar">
+                  {/* Welcome Message Panel */}
+                  <div className="flex flex-col items-center text-center px-5 mb-6 mt-2">
+                    <div className="w-14 h-14 rounded-full bg-primary-container flex items-center justify-center mb-2.5 shadow-lg">
+                      <Bot className="w-7 h-7 text-secondary" />
+                    </div>
+                    <span className="text-[10px] font-bold tracking-widest text-on-surface-variant uppercase">ASISTEN KEAMANAN & INFORMASI SOSMED</span>
+                    <p className="text-xs text-on-surface-variant mt-1 leading-relaxed max-w-xs">
+                      Saya asisten JagaIN. Tanyakan tentang tips keamanan digital, penangkalan informasi hoax, serta tanya jawab seputar isu/tren yang lagi hits di media sosial!
+                    </p>
                   </div>
-                  <span className="text-[10px] font-bold tracking-widest text-on-surface-variant uppercase">KEAMANAN DIGITAL REAL-TIME</span>
-                  <p className="text-xs text-on-surface-variant mt-1 leading-relaxed max-w-xs">
-                    Saya asisten JagaIN. Tanyakan apa saja tentang tips keamanan siber, privasi digital, atau verifikasi link.
-                  </p>
-                </div>
 
-                {/* Chat Canvas */}
-                <div className="flex-1 space-y-4 px-5 pb-36">
                   {messages.map((msg) => (
                     <div
                       key={msg.id}
@@ -1528,39 +1887,40 @@ export default function App() {
                   <div ref={chatEndRef} />
                 </div>
 
-                {/* Suggestions prompt helper */}
-                {messages.length < 3 && (
-                  <div className="px-5 pb-2 flex flex-col gap-2 absolute bottom-32 left-0 w-full z-10">
-                    <span className="text-[10px] font-bold tracking-widest text-on-surface-variant/70 uppercase">PERTANYAAN POPULER</span>
-                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                      {[
-                        "Bagaimana cara aktifkan 2FA?",
-                        "Apa ciri-ciri link phishing?",
-                        "Cara buat kata sandi kuat"
-                      ].map((prompt, i) => (
-                        <button
-                          key={i}
-                          onClick={() => handleSendChat(prompt)}
-                          className="glass-card py-2 px-3 rounded-full text-xs font-semibold whitespace-nowrap border border-white/5 hover:border-secondary/30 text-on-surface transition-all flex items-center gap-1"
-                        >
-                          <HelpCircle className="w-3.5 h-3.5 text-secondary" />
-                          {prompt}
-                        </button>
-                      ))}
+                {/* Bottom Control Deck */}
+                <div className="absolute bottom-0 left-0 w-full z-40 bg-gradient-to-t from-[#0a141e] via-[#0a141e]/95 to-transparent px-5 pb-5 pt-12 pointer-events-none">
+                  {/* Suggestions prompt helper */}
+                  {messages.length < 3 && (
+                    <div className="pb-3 flex flex-col gap-2 pointer-events-auto">
+                      <span className="text-[10px] font-bold tracking-widest text-on-surface-variant/70 uppercase">PERTANYAAN POPULER</span>
+                      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                        {[
+                          "Tips menjaga keamanan digital",
+                          "Bagaimana cara mengenali informasi hoax?",
+                          "Apa yang lagi hits di social media hari ini?"
+                        ].map((prompt, i) => (
+                          <button
+                            key={i}
+                            onClick={() => handleSendChat(prompt)}
+                            className="glass-card py-2 px-3 rounded-full text-xs font-semibold whitespace-nowrap border border-white/5 hover:border-secondary/30 text-on-surface transition-all flex items-center gap-1 bg-[#0a141e]/80"
+                          >
+                            <HelpCircle className="w-3.5 h-3.5 text-secondary" />
+                            {prompt}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Input Bar */}
-                <div className="absolute bottom-16 left-0 w-full z-40 px-5 pb-4">
-                  <div className="glass-card rounded-2xl p-2.5 flex items-center gap-2 shadow-2xl border border-white/10">
+                  {/* Input Bar */}
+                  <div className="glass-card rounded-2xl p-2.5 flex items-center gap-2 shadow-2xl border border-white/10 pointer-events-auto bg-[#0a141e]/90">
                     <input
                       type="text"
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleSendChat()}
                       className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-on-surface placeholder:text-white/30 py-2 pl-2 outline-none"
-                      placeholder="Tanya JagaIN AI tentang keamanan..."
+                      placeholder="Tanya keamanan, hoax, atau tren sosmed..."
                     />
                     <button
                       onClick={() => handleSendChat()}
@@ -1663,7 +2023,9 @@ export default function App() {
         </AnimatePresence>
 
         {/* BOTTOM NAVIGATION SHELL */}
-        <nav className="absolute bottom-0 left-0 w-full z-40 bg-background/50 backdrop-blur-xl border-t border-white/5 flex justify-around items-center h-20 px-2 pb-safe shadow-[0_-4px_30px_rgba(0,0,0,0.4)]">
+        <nav className="absolute bottom-0 left-0 w-full z-40 bg-background/70 backdrop-blur-xl border-t border-white/5 flex justify-around items-center h-20 px-2 pb-safe shadow-[0_-4px_30px_rgba(0,0,0,0.4)] overflow-hidden">
+          {/* Subtle gold Batik decorative trim at the top of footer */}
+          <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-secondary/40 via-[#d4af37]/60 to-secondary/40" />
           {/* Kabar */}
           <button
             onClick={() => {
